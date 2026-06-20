@@ -1,0 +1,115 @@
+/* ============================================================
+   Appointments Page Styles
+   ============================================================ */
+
+.appointments-page {
+  max-width: 1200px;
+}
+
+/* Booking card */
+.booking-card {
+  border: 1px solid var(--accent-primary);
+  box-shadow: 0 0 24px var(--accent-primary-glow);
+}
+
+.booking-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Filter tabs */
+.filter-tabs {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.filter-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0.5rem 1rem;
+  font-family: var(--font-family);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.filter-tab:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.filter-tab.active {
+  background: var(--accent-primary-glow);
+  color: var(--accent-primary);
+  border-color: hsla(172, 66%, 50%, 0.3);
+}
+
+.filter-count {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-full);
+  font-weight: 700;
+}
+
+.filter-tab.active .filter-count {
+  background: hsla(172, 66%, 50%, 0.2);
+}
+
+/* Appointments grid */
+.appointments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-md);
+}
+
+.appointment-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.appointment-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.appointment-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.appointment-card-body h4 {
+  font-size: 1.0625rem;
+}
+
+.appointment-card-time {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.appointment-card-actions {
+  display: flex;
+  gap: var(--space-sm);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 480px) {
+  .appointments-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,408 @@
+# =============================================================
+# MedConnect — DevSecOps Security Pipeline
+# Runs on every push to main branch
+# 5 mandatory security jobs for academic audit
+# =============================================================
+
+name: DevSecOps Security Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Allow manual trigger for testing
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # ============================================================
+  # 1. SECRET DETECTION — Gitleaks
+  #    Scans the entire repository for hardcoded secrets,
+  #    API keys, passwords, and tokens.
+  # ============================================================
+  secret-detection:
+    name: "🔑 Secret Detection (Gitleaks)"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for comprehensive scan
+
+      - name: Run Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+        env:
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        with:
+          args: detect --source . --report-format json --report-path gitleaks-report.json --no-git
+
+      - name: Run Gitleaks (fallback — direct CLI)
+        if: always()
+        continue-on-error: true
+        run: |
+          # Install Gitleaks directly if the action fails (e.g., no license key)
+          wget -qO- https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz | tar xz
+          chmod +x gitleaks
+          ./gitleaks detect --source . --report-format json --report-path gitleaks-report.json --no-git || true
+          echo "### 🔑 Gitleaks Results" >> $GITHUB_STEP_SUMMARY
+          if [ -f gitleaks-report.json ]; then
+            FINDINGS=$(cat gitleaks-report.json | python3 -c "import sys,json; data=json.load(sys.stdin); print(len(data))" 2>/dev/null || echo "0")
+            echo "Found **${FINDINGS}** potential secret(s)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No report generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          if-no-files-found: warn
+
+  # ============================================================
+  # 2. SCA — Software Composition Analysis (Trivy)
+  #    Scans pom.xml (Java) and package.json (Node) for
+  #    known CVEs in third-party dependencies.
+  # ============================================================
+  sca:
+    name: "📦 SCA — Dependency Scan (Trivy)"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy SCA — Backend (pom.xml)
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          scan-type: fs
+          scan-ref: ./backend
+          scanners: vuln
+          format: table
+          output: trivy-sca-backend.txt
+          severity: CRITICAL,HIGH,MEDIUM
+
+      - name: Run Trivy SCA — Frontend (package.json)
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          scan-type: fs
+          scan-ref: ./frontend
+          scanners: vuln
+          format: table
+          output: trivy-sca-frontend.txt
+          severity: CRITICAL,HIGH,MEDIUM
+
+      - name: Run Trivy SCA — Backend (JSON report)
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          scan-type: fs
+          scan-ref: ./backend
+          scanners: vuln
+          format: json
+          output: trivy-sca-backend.json
+
+      - name: Run Trivy SCA — Frontend (JSON report)
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          scan-type: fs
+          scan-ref: ./frontend
+          scanners: vuln
+          format: json
+          output: trivy-sca-frontend.json
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "### 📦 SCA Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "#### Backend (Java/Maven)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat trivy-sca-backend.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "#### Frontend (Node/npm)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat trivy-sca-frontend.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload SCA reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-sca-reports
+          path: |
+            trivy-sca-backend.txt
+            trivy-sca-backend.json
+            trivy-sca-frontend.txt
+            trivy-sca-frontend.json
+          if-no-files-found: warn
+
+  # ============================================================
+  # 3. SAST — Static Application Security Testing (Semgrep)
+  #    Scans Java and TypeScript source code for insecure
+  #    patterns (SQL injection, XSS, auth flaws, etc.).
+  # ============================================================
+  sast:
+    name: "🔍 SAST — Static Analysis (Semgrep)"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep SAST scan
+        uses: semgrep/semgrep-action@v1
+        continue-on-error: true
+        with:
+          config: >-
+            p/java
+            p/typescript
+            p/javascript
+            p/owasp-top-ten
+            p/security-audit
+          generateSarif: "1"
+        env:
+          SEMGREP_RULES: "p/java p/typescript p/javascript p/owasp-top-ten p/security-audit"
+
+      - name: Run Semgrep (fallback — direct CLI)
+        if: always()
+        continue-on-error: true
+        run: |
+          pip install semgrep 2>/dev/null || pip3 install semgrep 2>/dev/null
+          semgrep scan \
+            --config "p/java" \
+            --config "p/typescript" \
+            --config "p/javascript" \
+            --config "p/owasp-top-ten" \
+            --config "p/security-audit" \
+            --json --output semgrep-results.json \
+            --text --text-output semgrep-results.txt \
+            . || true
+          echo "### 🔍 SAST Results (Semgrep)" >> $GITHUB_STEP_SUMMARY
+          if [ -f semgrep-results.json ]; then
+            FINDINGS=$(python3 -c "import json; data=json.load(open('semgrep-results.json')); print(len(data.get('results',[])))" 2>/dev/null || echo "?")
+            echo "Found **${FINDINGS}** potential issue(s)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Semgrep reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-sast-reports
+          path: |
+            semgrep-results.json
+            semgrep-results.txt
+            results.sarif
+          if-no-files-found: warn
+
+  # ============================================================
+  # 4. IAC SCANNING — Infrastructure as Code (Trivy + Checkov)
+  #    Scans Dockerfiles and docker-compose.yml for
+  #    misconfigurations (root containers, exposed ports, etc.).
+  # ============================================================
+  iac:
+    name: "🐳 IaC Scanning (Trivy + Checkov)"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy IaC scan
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          scan-type: config
+          scan-ref: .
+          format: table
+          output: trivy-iac-results.txt
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+
+      - name: Run Trivy IaC scan (JSON)
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          scan-type: config
+          scan-ref: .
+          format: json
+          output: trivy-iac-results.json
+
+      - name: Run Checkov scan
+        continue-on-error: true
+        run: |
+          pip install checkov 2>/dev/null || pip3 install checkov 2>/dev/null
+          checkov \
+            --directory . \
+            --framework dockerfile docker_compose \
+            --output cli \
+            --output json \
+            --output-file-path . \
+            --soft-fail || true
+          # Rename Checkov outputs for clarity
+          mv results_cli.txt checkov-results.txt 2>/dev/null || true
+          mv results_json.json checkov-results.json 2>/dev/null || true
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "### 🐳 IaC Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "#### Trivy Config Scan" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat trivy-iac-results.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "#### Checkov Scan" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          head -100 checkov-results.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload IaC reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iac-scan-reports
+          path: |
+            trivy-iac-results.txt
+            trivy-iac-results.json
+            checkov-results.txt
+            checkov-results.json
+          if-no-files-found: warn
+
+  # ============================================================
+  # 5. DAST — Dynamic Application Security Testing (OWASP ZAP)
+  #    Spins up the full application stack via docker compose,
+  #    waits for healthy status, then runs ZAP Baseline Scan
+  #    against the live backend API.
+  # ============================================================
+  dast:
+    name: "🌐 DAST — Dynamic Scan (OWASP ZAP)"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build and start application stack
+        run: |
+          docker compose up -d --build
+          echo "Waiting for services to become healthy..."
+
+      - name: Wait for backend to be healthy
+        run: |
+          echo "Polling backend health endpoint..."
+          RETRIES=30
+          DELAY=10
+          for i in $(seq 1 $RETRIES); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/auth/health 2>/dev/null || echo "000")
+            echo "Attempt $i/$RETRIES — HTTP status: $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Backend is healthy!"
+              break
+            fi
+            if [ "$i" = "$RETRIES" ]; then
+              echo "⚠️ Backend did not become healthy in time, proceeding anyway..."
+              docker compose logs backend --tail=50
+            fi
+            sleep $DELAY
+          done
+
+      - name: Wait for frontend to be ready
+        run: |
+          echo "Polling frontend..."
+          RETRIES=10
+          for i in $(seq 1 $RETRIES); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>/dev/null || echo "000")
+            echo "Attempt $i/$RETRIES — HTTP status: $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Frontend is ready!"
+              break
+            fi
+            sleep 5
+          done
+
+      - name: Verify application stack
+        if: always()
+        run: |
+          echo "### Container Status"
+          docker compose ps
+          echo ""
+          echo "### Health Check"
+          curl -s http://localhost:8080/api/auth/health | python3 -m json.tool || echo "Health check failed"
+
+      - name: Run OWASP ZAP Baseline Scan — Backend API
+        continue-on-error: true
+        run: |
+          # Create writable directory for ZAP reports
+          mkdir -p zap-reports
+          chmod 777 zap-reports
+
+          # Run ZAP Baseline scan against the backend API
+          docker run --rm \
+            --network host \
+            -v $(pwd)/zap-reports:/zap/wrk:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t http://localhost:8080 \
+              -r zap-backend-report.html \
+              -J zap-backend-report.json \
+              -I \
+            || true
+
+      - name: Run OWASP ZAP Baseline Scan — Frontend
+        continue-on-error: true
+        run: |
+          docker run --rm \
+            --network host \
+            -v $(pwd)/zap-reports:/zap/wrk:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t http://localhost:3000 \
+              -r zap-frontend-report.html \
+              -J zap-frontend-report.json \
+              -I \
+            || true
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "### 🌐 DAST Results (OWASP ZAP)" >> $GITHUB_STEP_SUMMARY
+          if [ -f zap-reports/zap-backend-report.json ]; then
+            ALERTS=$(python3 -c "
+          import json
+          data = json.load(open('zap-reports/zap-backend-report.json'))
+          sites = data.get('site', [])
+          total = sum(len(s.get('alerts', [])) for s in sites) if isinstance(sites, list) else len(sites.get('alerts', []))
+          print(total)
+          " 2>/dev/null || echo "?")
+            echo "Backend API: **${ALERTS}** alert type(s) found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Backend API: No report generated" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f zap-reports/zap-frontend-report.json ]; then
+            echo "Frontend: Report generated ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Frontend: No report generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Collect docker compose logs
+        if: always()
+        run: |
+          docker compose logs > zap-reports/docker-compose-logs.txt 2>&1 || true
+
+      - name: Tear down application stack
+        if: always()
+        run: docker compose down -v
+
+      - name: Upload ZAP reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-zap-reports
+          path: |
+            zap-reports/
+          if-no-files-found: warn

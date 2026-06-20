@@ -1,0 +1,232 @@
+/* ============================================================
+   Dashboard Page Styles
+   ============================================================ */
+
+.dashboard-page {
+  max-width: 1200px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-xl);
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.dashboard-header h1 {
+  margin-bottom: var(--space-xs);
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg) !important;
+  animation: slideUp 0.4s ease-out both;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon-primary {
+  background: var(--accent-primary-glow);
+  color: var(--accent-primary);
+}
+
+.stat-icon-success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.stat-icon-purple {
+  background: var(--accent-secondary-glow);
+  color: var(--accent-secondary);
+}
+
+.stat-icon-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1;
+  animation: countUp 0.5s ease-out;
+}
+
+.stat-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xl);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+
+.card-header h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Appointment list */
+.appointment-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.appointment-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.appointment-item:hover {
+  background: var(--bg-hover);
+}
+
+.appointment-time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+  padding: var(--space-sm);
+  background: var(--accent-primary-glow);
+  border-radius: var(--radius-sm);
+}
+
+.time-date {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+}
+
+.time-hour {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.appointment-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.appointment-name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+/* Records list */
+.records-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.record-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.record-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  flex-shrink: 0;
+  margin-top: 6px;
+  box-shadow: 0 0 8px hsla(172, 66%, 50%, 0.4);
+}
+
+.record-dot-completed {
+  background: var(--success);
+  box-shadow: 0 0 8px hsla(145, 63%, 49%, 0.4);
+}
+
+.record-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.record-diagnosis {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-2xl);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.empty-state p {
+  font-size: 0.9375rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
