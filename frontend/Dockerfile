@@ -1,7 +1,5 @@
 # =============================================================
 # MedConnect Frontend — Multi-Stage Dockerfile
-# NOTE: Intentionally runs as root (no USER directive)
-#       for IaC security scanner detection.
 # =============================================================
 
 # ---------- Stage 1: Build ----------
