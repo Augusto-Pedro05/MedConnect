@@ -239,7 +239,7 @@ jobs:
           pip install checkov 2>/dev/null || pip3 install checkov 2>/dev/null
           checkov \
             --directory . \
-            --framework dockerfile docker_compose \
+            --framework dockerfile \
             --output cli \
             --output json \
             --output-file-path . \
