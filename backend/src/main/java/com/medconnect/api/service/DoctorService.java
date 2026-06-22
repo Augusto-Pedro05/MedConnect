@@ -55,16 +55,17 @@ public class DoctorService {
      */
     @SuppressWarnings("unchecked")
     public List<DoctorResponse> searchDoctorsByName(String name) {
-        // SAST target: SQL injection via string concatenation
         String sql = "SELECT u.* FROM users u " +
                      "INNER JOIN doctor_profiles dp ON u.id = dp.user_id " +
                      "WHERE u.role = 'DOCTOR' " +
-                     "AND (LOWER(u.first_name) LIKE LOWER('%" + name + "%') " +
-                     "OR LOWER(u.last_name) LIKE LOWER('%" + name + "%'))";
+                     "AND (LOWER(u.first_name) LIKE LOWER(:searchTerm) " +
+                     "OR LOWER(u.last_name) LIKE LOWER(:searchTerm))";
 
-        logger.info("Executing doctor search query: {}", sql);
+        logger.info("Executing parameterized doctor search query");
 
         Query query = entityManager.createNativeQuery(sql, User.class);
+        query.setParameter("searchTerm", "%" + name + "%");
+
         List<User> results = query.getResultList();
         return results.stream().map(this::toResponse).collect(Collectors.toList());
     }
