@@ -18,8 +18,21 @@ FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
+# 1. Remediação IaC (CKV_DOCKER_3): Criar grupo e utilizador de sistema restrito
+RUN addgroup -S medgroup && adduser -S meduser -G medgroup
+
 COPY --from=build /app/target/*.jar app.jar
 
+# 2. Conceder a posse estrita do binário ao utilizador isolado
+RUN chown meduser:medgroup app.jar
+
+# 3. Rebaixar os privilégios de execução antes do ponto de entrada
+USER meduser
+
 EXPOSE 8080
+
+# 4. Remediação IaC (CKV_DOCKER_2): Sonda de Liveness TCP local via Netcat
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD nc -z localhost 8080 || exit 1
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
